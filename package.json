@@ -1,0 +1,15 @@
+{
+  "name": "content-pipeline-generator",
+  "version": "1.0.0",
+  "description": "Carousel generation stage for the content intelligence pipeline",
+  "type": "module",
+  "main": "src/js/carousel.js",
+  "scripts": {
+    "start": "node src/js/carousel.js",
+    "lint": "node --check src/js/carousel.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}

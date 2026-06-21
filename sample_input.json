@@ -1,0 +1,40 @@
+{
+  "items": [
+    {
+      "shortCode": "Cx7aB2qLk0",
+      "source": "example_source_a",
+      "caption": "Three lessons from our last launch #growth #startup #marketing",
+      "mediaUrl": "https://example.com/media/Cx7aB2qLk0.jpg",
+      "postedAt": "2026-06-20T09:15:00Z",
+      "likeCount": 842,
+      "commentCount": 57
+    },
+    {
+      "shortCode": "Dy8bC3rMl1",
+      "source": "example_source_b",
+      "caption": "Behind the scenes of how we ship #product #engineering",
+      "mediaUrl": "https://example.com/media/Dy8bC3rMl1.jpg",
+      "postedAt": "2026-06-19T14:30:00Z",
+      "likeCount": 1203,
+      "commentCount": 142
+    },
+    {
+      "shortCode": "Ez9cD4sNm2",
+      "source": "example_source_a",
+      "caption": "A quiet post with low engagement and no tags",
+      "mediaUrl": "https://example.com/media/Ez9cD4sNm2.jpg",
+      "postedAt": "2026-06-10T08:00:00Z",
+      "likeCount": 14,
+      "commentCount": 1
+    },
+    {
+      "shortCode": "Fa0dE5tOn3",
+      "source": "example_source_c",
+      "caption": "Big announcement coming soon #news #web3 #community",
+      "mediaUrl": "https://example.com/media/Fa0dE5tOn3.jpg",
+      "postedAt": "2026-06-21T07:45:00Z",
+      "likeCount": 2310,
+      "commentCount": 289
+    }
+  ]
+}

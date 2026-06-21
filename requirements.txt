@@ -1,0 +1,4 @@
+# Runtime has no third-party dependencies; the pipeline uses the standard
+# library only. Dev/test tooling is pinned below.
+pytest==8.2.0
+ruff==0.4.4
