@@ -1,0 +1,948 @@
+{
+  "name": "Content Intelligence Pipeline (sanitised)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "id": "",
+      "name": "Daily 5am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://example.com/collect",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ directUrls: ['https://example.com/source-profile'], resultsType: 'posts', resultsLimit: 10, addParentData: false }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 120000
+        }
+      },
+      "id": "",
+      "name": "Scrape example_source",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -608,
+        112
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalise collected content items into a consistent shape, newest first.\n// Source-specific parsing omitted. Produces { posts: [...] } with shortCode,\n// caption, mediaUrl, timestamp and engagement counts per item.\nconst items = $input.all().map(i => i.json);\n// ... normalisation + sorting omitted ...\nreturn [{ json: { posts: [] /* normalised items */ } }];\n"
+      },
+      "id": "",
+      "name": "Structure Posts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "have-posts",
+              "leftValue": "={{ $json.empty }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "",
+      "name": "Have Posts?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        400,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the request payload for the relevance/analysis model.\n// The production system prompt and scoring strategy are proprietary and\n// omitted. The interface stays the same: returns a single request body.\nreturn [{ json: { request: { /* prompt + items omitted */ } } }];\n"
+      },
+      "id": "",
+      "name": "Build Intel Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.com/analyse",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "YOUR_API_KEY"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request_body) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 180000
+        }
+      },
+      "id": "",
+      "name": "Call Analysis Model",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        784,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the model response into structured guidance fields used downstream.\n// Field mapping omitted.\nreturn [{ json: { parse_success: true, guidance: {} } }];\n"
+      },
+      "id": "",
+      "name": "Parse Intel",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1216,
+        -560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Wrap parsed guidance with run metadata for the generation stage.\nreturn [{ json: { ...$input.first().json } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        112
+      ],
+      "id": "",
+      "name": "wrap"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.com/upload/image/upload",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "image"
+            },
+            {
+              "name": "upload_preset",
+              "value": "phisify_unsigned"
+            },
+            {
+              "name": "folder",
+              "value": "phisify/intel"
+            },
+            {
+              "name": "public_id",
+              "value": "={{ $json.public_id }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        0,
+        112
+      ],
+      "id": "",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Regroup uploaded asset URLs back onto their source posts by index.\nconst items = $input.all();\nif (items.length === 0) return [{ json: { empty: true } }];\n// ... grouping logic omitted ...\nreturn [{ json: { posts: [] } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        112
+      ],
+      "id": "",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fan a single record's slides array out into one item per slide,\n// assigning a stable id (shortCode + run suffix) for idempotent naming.\nconst d = $input.first().json;\nconst slides = Array.isArray(d.slides) ? d.slides : [];\nconst id = d.id || `item_${Date.now()}_${Math.random().toString(36).slice(2,6)}`;\nreturn slides.map((s, idx) => ({ json: { id, slide_number: idx, /* fields omitted */ } }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        0
+      ],
+      "id": "",
+      "name": "spread"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1552,
+        32
+      ],
+      "id": "",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.com/image",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "YOUR_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'gpt-image-2', prompt: $json.slide_prompt, n: 1, size: '1024x1280', quality: 'high', output_format: 'png' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 600000
+        }
+      },
+      "id": "",
+      "name": "Generate Slide",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2176,
+        336
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Decode the generated image payload into binary for upload.\n// Implementation omitted.\nreturn $input.all();\n"
+      },
+      "id": "",
+      "name": "Decode Image",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2352,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://example.com/upload/image/upload",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "image"
+            },
+            {
+              "name": "upload_preset",
+              "value": "phisify_unsigned"
+            },
+            {
+              "name": "folder",
+              "value": "phisify/posts"
+            },
+            {
+              "name": "public_id",
+              "value": "=={{ $('Switch').item.json.id }}_slide_{{ $('Switch').item.json.slide_number }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "",
+      "name": "Upload Slide",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2608,
+        336
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Capture the hosted asset URL returned by the host.\nreturn [{ json: { hostedUrl: $input.first().json.url || '' } }];\n"
+      },
+      "id": "",
+      "name": "Capture URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2800,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate per-slide results back into a single post record.\nreturn [{ json: { slides: $input.all().map(i => i.json) } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        -192
+      ],
+      "id": "",
+      "name": "aggregate"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.slide_type }}",
+                    "rightValue": "top_stories",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ed8550b3-9579-4489-87db-61a52ef4ba35"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "516b8515-bf35-47e9-98a7-b5ba7809dda5",
+                    "leftValue": "={{ $json.slide_type }}",
+                    "rightValue": "data_grid",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "7c78ccb5-dfd9-4054-9318-1c9073bbaa0b",
+                    "leftValue": "={{ $json.slide_type }}",
+                    "rightValue": "editorial",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1792,
+        96
+      ],
+      "id": "",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the HTML used to render a slide image. Template omitted.\nreturn [{ json: { html: '<!-- slide template omitted -->' } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2736,
+        -576
+      ],
+      "id": "",
+      "name": "Build Html"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.com/render",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ html: $json.html_payload, options: { type: 'png', fullPage: false, omitBackground: false }, viewport: { width: 1080, height: 1350, deviceScaleFactor: 2 }, gotoOptions: { waitUntil: 'networkidle0' } }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "responseFormat": "file",
+              "outputPropertyName": "image"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2432,
+        176
+      ],
+      "id": "",
+      "name": "Render Slide",
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse generation output into the publish record shape. Omitted.\nreturn [{ json: { ...$input.first().json } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        0
+      ],
+      "id": "",
+      "name": "parse"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Optional enrichment step: resolve supporting media for referenced tickers\n// via a public lookup. Implementation omitted.\nreturn [{ json: { ...$input.first().json } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2064,
+        96
+      ],
+      "id": "",
+      "name": "enrich logos"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Alternate slide HTML template. Omitted.\nreturn [{ json: { html: '<!-- slide template omitted -->' } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2256,
+        176
+      ],
+      "id": "",
+      "name": "build html new"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Your Sheet",
+          "cachedResultUrl": "https://example.com/sheet"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Your Sheet",
+          "cachedResultUrl": "https://example.com/sheet"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "image_urls": "={{ $json.image_urls }}",
+            "caption": "={{ $json.caption }}",
+            "created_at": "={{ $json.created_at }}",
+            "status": "not_published"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "image_urls",
+              "displayName": "image_urls",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "caption",
+              "displayName": "caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2000,
+        -192
+      ],
+      "id": "",
+      "name": "Append row in sheet"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily 5am": {
+      "main": [
+        [
+          {
+            "node": "Scrape example_source",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Collect Content": {
+      "main": [
+        [
+          {
+            "node": "Structure Posts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structure Posts": {
+      "main": [
+        [
+          {
+            "node": "wrap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Have Posts?": {
+      "main": [
+        [
+          {
+            "node": "Build Intel Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Build Intel Request": {
+      "main": [
+        [
+          {
+            "node": "Call Analysis Model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Analysis Model": {
+      "main": [
+        [
+          {
+            "node": "parse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Intel": {
+      "main": [
+        []
+      ]
+    },
+    "wrap": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Have Posts?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "spread": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Slide": {
+      "main": [
+        [
+          {
+            "node": "Decode Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decode Image": {
+      "main": [
+        [
+          {
+            "node": "Upload Slide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Slide": {
+      "main": [
+        [
+          {
+            "node": "Capture URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Capture URL": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "enrich logos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "enrich logos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Generate Slide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Html": {
+      "main": [
+        []
+      ]
+    },
+    "Render Slide": {
+      "main": [
+        [
+          {
+            "node": "Upload Slide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse": {
+      "main": [
+        [
+          {
+            "node": "spread",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "enrich logos": {
+      "main": [
+        [
+          {
+            "node": "build html new",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "build html new": {
+      "main": [
+        [
+          {
+            "node": "Render Slide",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "aggregate": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "sanitised",
+  "meta": {},
+  "id": "sanitised",
+  "tags": []
+}
