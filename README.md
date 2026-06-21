@@ -1,6 +1,6 @@
 # Content Intelligence Pipeline
 
-![CI](https://github.com/YOURUSERNAME/content-pipeline/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/hriskole3v-png/content-pipeline/actions/workflows/ci.yml/badge.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
 
 An automated pipeline that collects competitor content, scores it for
